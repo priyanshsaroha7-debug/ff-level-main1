@@ -942,10 +942,6 @@ async def start_web_dashboard(host: str = "0.0.0.0", port: int = 5000,
                               mongo_uri: str = "mongodb://127.0.0.1:27017", mongo_db: str = "fflevel"):
     global db
     db = PanelDB(mongo_uri, mongo_db)
-    try:
-        await db.init()
-    except Exception as e:
-        raise RuntimeError(f"Could not connect to MongoDB ({e}). Check MONGO_URI in Main.py.") from e
     print(f"\033[92m[+] Connected to MongoDB database '{mongo_db}'\033[0m")
     created = await db.ensure_admin()
     if created:
@@ -1012,5 +1008,13 @@ async def start_web_dashboard(host: str = "0.0.0.0", port: int = 5000,
     await runner.setup()
     site = web.TCPSite(runner, host, port)
     await site.start()
+
+    # Render: port ko MongoDB se pehle bind karo
+    try:
+        await asyncio.wait_for(db.init(), timeout=15)
+        print(f"Connected to MongoDB database '{mongo_db}'")
+    except Exception as e:
+        print(f"MongoDB connection failed: {e}")
+        print("Web panel is still running without MongoDB.")
     bot_state.refresh_callbacks["_sync_task"] = asyncio.create_task(sync_loop())
     print(f"\033[92m[+] Web Panel running on http://localhost:{port}  (admin: /admin, users: /panel)\033[0m")
